@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ForeverLedger</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23d6b04c'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --page: #110f0c;
+  --panel: #1a1714;          /* chart surface (palette validated against it) */
+  --panel-2: #211d18;
+  --raise: #2a241e;
+  --well: #0d0b09;
+  --line: #342d24;
+  --line-2: #4a4034;
+  --grid: #2b2520;
+  --axis: #50473b;
+  --ink: #ede4d1;
+  --ink-2: #a99e89;
+  --ink-3: #7b7161;
+  --gold: #d6b04c;
+  --gold-2: #a8862f;
+  --gold-wash: rgba(214, 176, 76, 0.12);
+  --s-market: #338ced;
+  --s-min: #e76624;
+  --s-qty: #00a888;
+  --pos: #338ced;
+  --neg: #eb6263;
+  --up: #53c556;
+  --down: #eb6263;
+  --coin-g: #ffd700;
+  --coin-s: #c7c7cf;
+  --coin-c: #eda55f;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  --display: "Cinzel", "Trajan Pro", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(1200px 600px at 20% -10%, #1f1a13 0%, transparent 60%), var(--page);
+  color: var(--ink);
+  font: 14px/1.45 var(--sans);
+  min-height: 100vh;
+}
+a { color: inherit; text-decoration: none; }
+button, input, select { font: inherit; color: inherit; }
+
+/* ---------- header ---------- */
+.top {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+  padding: 12px 28px;
+  background: linear-gradient(#1d1915, #15120f);
+  border-bottom: 1px solid var(--line-2);
+  box-shadow: 0 1px 0 rgba(214,176,76,0.25), 0 8px 24px rgba(0,0,0,0.35);
+}
+.brand { display: flex; flex-direction: column; line-height: 1.1; }
+.brand b { font: 700 21px var(--display); color: var(--gold); letter-spacing: 0.06em; }
+.brand span { font: 10px var(--mono); color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 3px; }
+nav { display: flex; gap: 4px; }
+nav a {
+  font: 600 12px var(--mono); letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-2); padding: 8px 12px; border-radius: 4px; border: 1px solid transparent;
+}
+nav a:hover { color: var(--ink); background: var(--gold-wash); }
+nav a.active { color: var(--gold); border-color: var(--line-2); background: #241f19; }
+.top .spacer { flex: 1; }
+.fresh { font: 12px var(--mono); color: var(--ink-2); text-align: right; }
+.fresh b { color: var(--ink); font-weight: 600; }
+.pill {
+  display: inline-block; margin-left: 8px; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+  background: var(--gold); color: #1a1408; font: 700 11px var(--mono); letter-spacing: 0.06em; border: 0;
+}
+
+/* ---------- layout ---------- */
+main { padding: 22px 28px 60px; max-width: 1480px; margin: 0 auto; transition: opacity 0.15s; }
+main.loading { opacity: 0.55; }
+.banner {
+  margin: 16px 28px 0; padding: 10px 14px; border-radius: 6px;
+  background: #251f14; border: 1px solid #5a4a26; color: var(--ink); font-size: 13px;
+}
+.banner code { font: 12px var(--mono); background: var(--well); padding: 1px 6px; border-radius: 3px; color: var(--gold); }
+h1 { font: 700 24px var(--display); color: var(--gold); letter-spacing: 0.04em; margin: 0; }
+h2 {
+  font: 600 13px var(--display); color: var(--gold); letter-spacing: 0.12em; text-transform: uppercase;
+  margin: 0 0 12px;
+}
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+.grid { display: grid; gap: 16px; }
+.cols-2 { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); }
+.stack > * + * { margin-top: 16px; }
+.muted { color: var(--ink-3); }
+.sub { color: var(--ink-2); font-size: 12px; }
+.label { font: 600 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.note { color: var(--ink-2); font-size: 12px; margin-top: 8px; }
+.error { color: var(--down); padding: 20px; }
+
+/* ---------- controls ---------- */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+input[type=search], select {
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 4px; padding: 8px 10px; outline: none;
+}
+input[type=search] { width: 340px; font-size: 15px; }
+input[type=search]:focus, select:focus { border-color: var(--gold-2); box-shadow: 0 0 0 3px var(--gold-wash); }
+select:disabled { opacity: 0.45; }
+.check { display: inline-flex; gap: 7px; align-items: center; color: var(--ink-2); cursor: pointer; user-select: none; }
+.check input { accent-color: var(--gold); width: 15px; height: 15px; }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 4px; overflow: hidden; }
+.seg button {
+  background: var(--well); border: 0; border-right: 1px solid var(--line-2); padding: 7px 12px; cursor: pointer;
+  font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2);
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: var(--gold-wash); color: var(--ink); }
+.seg button.on { background: #2e2615; color: var(--gold); }
+.btn {
+  background: #2a2318; border: 1px solid var(--line-2); border-radius: 4px; padding: 7px 14px; cursor: pointer;
+  font: 600 12px var(--mono); letter-spacing: 0.06em; color: var(--ink);
+}
+.btn:hover { border-color: var(--gold-2); color: var(--gold); }
+.linkish { color: var(--gold); cursor: pointer; }
+.linkish:hover { text-decoration: underline; }
+
+/* ---------- tables ---------- */
+table { width: 100%; border-collapse: collapse; }
+th {
+  font: 600 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2);
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap;
+  position: sticky; top: 0; background: var(--panel);
+}
+th.num { text-align: right; }
+th.sortable { cursor: pointer; }
+th.sortable:hover { color: var(--ink); }
+th .arrow { color: var(--gold); margin-left: 4px; }
+td { padding: 6px 10px; border-bottom: 1px solid #241f1a; vertical-align: middle; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover { background: var(--raise); }
+tbody tr.click:focus-visible { outline: 1px solid var(--gold-2); outline-offset: -1px; }
+
+/* ---------- items, money ---------- */
+.item { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.item .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .cat { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.ic {
+  flex: none; border-radius: 4px; border: 1px solid #000; background: #0b0a08 center/cover;
+  box-shadow: 0 0 0 1px var(--line-2); display: grid; place-items: center; color: var(--ink-3); font: 600 11px var(--mono);
+}
+.q-poor { color: #9d9d9d; } .q-common { color: #ece9e2; } .q-uncommon { color: #1eff00; } .q-rare { color: #3b8cff; }
+.q-epic { color: #b54cff; } .q-legendary { color: #ff8000; } .q-artifact { color: #e6cc80; } .q-heirloom { color: #00ccff; }
+.qb-uncommon { box-shadow: 0 0 0 1px #1eff0088; } .qb-rare { box-shadow: 0 0 0 1px #3b8cff99; }
+.qb-epic { box-shadow: 0 0 0 1px #b54cff99; } .qb-legendary { box-shadow: 0 0 0 1px #ff800099; }
+.money { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.money .u { font-size: 0.8em; font-weight: 700; margin-left: 1px; }
+.money .u.g { color: var(--coin-g); } .money .u.s { color: var(--coin-s); } .money .u.c { color: var(--coin-c); }
+.delta { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.delta.up { color: var(--up); } .delta.down { color: var(--down); } .delta.flat { color: var(--ink-2); }
+
+/* ---------- stat tiles ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+.tile .v { font-size: 22px; font-weight: 600; margin-top: 4px; }
+.tile .s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+
+/* ---------- item header ---------- */
+.itemhead { display: flex; gap: 16px; align-items: center; }
+.itemhead .nm { font-size: 26px; font-weight: 700; line-height: 1.15; }
+.itemhead .meta { color: var(--ink-2); margin-top: 4px; }
+.itemhead .links { margin-top: 6px; font-size: 12px; }
+.back { display: inline-block; margin-bottom: 14px; color: var(--ink-2); font: 600 12px var(--mono); letter-spacing: 0.08em; }
+.back:hover { color: var(--gold); }
+
+/* ---------- charts ---------- */
+.chart-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2); }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend .ln { width: 16px; height: 2px; border-radius: 1px; display: inline-block; }
+.legend .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.chart-group { position: relative; outline: none; }
+.chart-group:focus-visible { box-shadow: 0 0 0 1px var(--gold-2); border-radius: 4px; }
+.chart-title { font-size: 12px; color: var(--ink-2); margin: 10px 0 2px; }
+svg.chart { display: block; overflow: visible; font-family: var(--sans); }
+svg.chart text { fill: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+#tooltip {
+  position: fixed; z-index: 50; pointer-events: none; display: none; min-width: 170px;
+  background: #0e0c0a; border: 1px solid var(--line-2); border-radius: 6px; padding: 8px 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 12px;
+}
+#tooltip .tt-head { color: var(--ink-2); margin-bottom: 6px; white-space: nowrap; }
+#tooltip .tt-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; white-space: nowrap; }
+#tooltip .tt-row .ln { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+#tooltip .tt-row .sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+#tooltip .tt-row b { color: var(--ink); font-weight: 650; }
+#tooltip .tt-row span.l { color: var(--ink-2); }
+.empty { color: var(--ink-2); padding: 18px 4px; }
+pre.log { background: var(--well); border: 1px solid var(--line); border-radius: 4px; padding: 10px; overflow: auto; font: 12px/1.5 var(--mono); color: var(--ink-2); max-height: 380px; }
+.reagents { margin: 4px 0 8px 44px; font-size: 12px; color: var(--ink-2); }
+.reagents td { border: 0; padding: 2px 10px 2px 0; }
+@media (max-width: 760px) {
+  .top { padding: 10px 14px; gap: 12px; }
+  main { padding: 14px; }
+  input[type=search] { width: 100%; }
+  .cols-2 { grid-template-columns: 1fr; }
+  .hide-sm { display: none; }
+  nav { overflow-x: auto; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<script>window.FL_STATIC = true;</script>
+<header class="top">
+  <a class="brand" href="#/market"><b>ForeverLedger</b><span>WoW Forever auction database</span></a>
+  <nav id="nav">
+    <a href="#/market" data-v="market">Market</a>
+    <a href="#/movers" data-v="movers">Movers</a>
+    <a href="#/disenchant" data-v="disenchant">Disenchant</a>
+    <a href="#/ledger" data-v="ledger">Ledger</a>
+    <a href="#/crafting" data-v="crafting">Crafting</a>
+    <a href="#/status" data-v="status">Status</a>
+  </nav>
+  <div class="spacer"></div>
+  <label class="label" for="house">House&nbsp;<select id="house"></select></label>
+  <div class="fresh" id="fresh"></div>
+</header>
+<div id="banner"></div>
+<main id="view"></main>
+<div id="tooltip" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------- basics
+const VIEW = document.getElementById('view');
+const TIP = document.getElementById('tooltip');
+const SVGNS = 'http://www.w3.org/2000/svg';
+const state = { status: null, house: null, classes: {}, routeToken: 0, summaryBuilt: null, market: null };
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('fl.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('fl.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+};
+
+// Build DOM safely: strings always become text nodes (item names are data, not HTML).
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'style') el.style.cssText = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) {
+    if (c === null || c === undefined || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+function s(tag, attrs) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== undefined && v !== null) el.setAttribute(k, v);
+  return el;
+}
+
+const fmtInt = n => (n === null || n === undefined) ? '—' : Number(n).toLocaleString();
+
+function coinParts(c) {
+  c = Math.round(Math.abs(c));
+  const g = Math.floor(c / 10000), sv = Math.floor((c % 10000) / 100), cp = c % 100;
+  const parts = [];
+  if (g) parts.push([g.toLocaleString(), 'g']);
+  if (sv) parts.push([sv, 's']);
+  if ((cp || !parts.length) && g < 100) parts.push([cp, 'c']);
+  return parts;
+}
+function money(c) {
+  if (c === null || c === undefined) return h('span', { class: 'muted' }, '—');
+  const el = h('span', { class: 'money' });
+  if (c < 0) el.append('−');
+  coinParts(c).forEach(([n, u], i) => { if (i) el.append(' '); el.append(String(n), h('span', { class: 'u ' + u }, u)); });
+  return el;
+}
+function moneyText(c) {
+  if (c === null || c === undefined) return '—';
+  return (c < 0 ? '−' : '') + coinParts(c).map(([n, u]) => n + u).join(' ');
+}
+function ago(ts) {
+  if (!ts) return 'never';
+  const sec = Math.max(0, Date.now() / 1000 - ts);
+  if (sec < 90) return 'just now';
+  if (sec < 3600) return Math.round(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ' + String(Math.floor(sec % 3600 / 60)).padStart(2, '0') + 'm ago';
+  return Math.floor(sec / 86400) + 'd ago';
+}
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function clock(ts) { const d = new Date(ts * 1000); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function dayLabel(ts) { const d = new Date(ts * 1000); return MONTHS[d.getMonth()] + ' ' + d.getDate(); }
+function stamp(ts) { const d = new Date(ts * 1000); return DAYS[d.getDay()] + ' ' + dayLabel(ts) + ', ' + clock(ts); }
+function shortStamp(ts) { return dayLabel(ts) + ' ' + clock(ts); }
+
+function delta(cur, base) {
+  if (!cur || !base) return h('span', { class: 'delta flat' }, '—');
+  const p = cur / base - 1;
+  if (Math.abs(p) < 0.005) return h('span', { class: 'delta flat', title: 'No change' }, '0%');
+  const pctTxt = Math.abs(p) >= 10 ? Math.round(Math.abs(p) * 100).toLocaleString() + '%' : (Math.abs(p) * 100).toFixed(Math.abs(p) < 0.1 ? 1 : 0) + '%';
+  return h('span', { class: 'delta ' + (p > 0 ? 'up' : 'down'), title: (p > 0 ? 'Up ' : 'Down ') + pctTxt },
+    (p > 0 ? '▲ ' : '▼ ') + pctTxt);
+}
+
+const qcls = q => q ? 'q-' + q.toLowerCase() : '';
+const itemName = r => r.name || ('Item #' + r.item_id);
+function icon(url, size, quality) {
+  const st = `width:${size}px;height:${size}px;` + (url ? `background-image:url("${encodeURI(url)}")` : '');
+  return h('span', { class: 'ic ' + (quality ? 'qb-' + quality.toLowerCase() : ''), style: st, 'aria-hidden': 'true' }, url ? '' : '?');
+}
+function itemCell(r, opts = {}) {
+  const cat = [r.item_class, r.item_subclass].filter(Boolean).join(' · ');
+  return h('div', { class: 'item' },
+    icon(r.icon, opts.size || 26, r.quality),
+    h('div', { style: 'min-width:0' },
+      h('div', { class: 'nm ' + qcls(r.quality) }, itemName(r)),
+      opts.noCat || !(cat || r.name) ? null : h('div', { class: 'cat' }, cat || ('#' + r.item_id))));
+}
+function goItem(id) { location.hash = '#/item/' + id; }
+function clickRow(id, ...cells) {
+  return h('tr', { class: 'click', tabindex: '0', onclick: () => goItem(id),
+    onkeydown: e => { if (e.key === 'Enter') goItem(id); } }, ...cells);
+}
+function td(content, cls) { return h('td', { class: cls }, content); }
+function tile(label, value, sub) {
+  return h('div', { class: 'tile' }, h('div', { class: 'label' }, label), h('div', { class: 'v' }, value), sub ? h('div', { class: 's' }, sub) : null);
+}
+
+const STATIC = !!window.FL_STATIC;
+async function api(path, params = {}) {
+  if (STATIC) return staticApi(path, params);
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+  const res = await fetch(`/api/${path}?${qs}`);
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* not JSON */ }
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+// ---------------------------------------------------------------- shared (static) site
+// When published to GitHub Pages there is no server: the same questions are answered
+// from JSON files the companion writes (data/meta.json, data/<house>/...).
+const SC = { meta: null, files: {}, items: {} };
+async function staticMeta(force) {
+  if (!SC.meta || force) {
+    const res = await fetch('data/meta.json?t=' + Date.now());
+    if (!res.ok) throw new Error('data/meta.json is missing');
+    const m = await res.json();
+    if (SC.meta && m.generated !== SC.meta.generated) { SC.files = {}; SC.items = {}; }
+    SC.meta = m;
+  }
+  return SC.meta;
+}
+function staticFile(path) {
+  const key = path + '?v=' + SC.meta.generated;
+  if (!SC.files[key]) SC.files[key] = fetch('data/' + key).then(r => { if (!r.ok) throw new Error('missing ' + path); return r.json(); });
+  return SC.files[key];
+}
+async function staticItems(house) {
+  if (!SC.items[house]) {
+    SC.items[house] = staticFile(house + '/items.json').then(d => {
+      const rows = d.rows.map(r => { const o = { house_key: house }; d.cols.forEach((c, i) => { o[c] = r[i]; }); if (o.icon) o.icon = SC.meta.icon_base + o.icon; return o; });
+      rows.byId = new Map(rows.map(o => [o.item_id, o]));
+      return rows;
+    });
+  }
+  return SC.items[house];
+}
+const withIcon = o => { if (o && o.icon && !/^https?:/.test(o.icon)) o.icon = SC.meta.icon_base + o.icon; return o; };
+const ratio = (a, b) => (a && b) ? a / b : null;
+const SORT_KEYS = {
+  size: r => r.listings >= 3 ? r.market * r.qty : 0, name: r => (r.name || '~' + r.item_id).toLowerCase(), market: r => r.market,
+  min: r => r.min_unit, qty: r => r.qty, avg7: r => r.avg7, avg30: r => r.avg30, change: r => ratio(r.market, r.avg7),
+  change24: r => ratio(r.market, r.prev_market), seen: r => r.seen,
+};
+function sortRows(rows, keyFn, asc) {
+  return rows.sort((a, b) => {
+    const x = keyFn(a), y = keyFn(b);
+    const xn = x === null || x === undefined, yn = y === null || y === undefined;
+    if (xn || yn) return xn === yn ? a.item_id - b.item_id : (xn ? 1 : -1);
+    if (x < y) return asc ? -1 : 1;
+    if (x > y) return asc ? 1 : -1;
+    return a.item_id - b.item_id;
+  });
+}
+async function staticApi(path, p) {
+  const meta = await staticMeta(path === 'status');
+  const house = meta.houses.includes(p.house) ? p.house : meta.default_house;
+  const int = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; };
+  if (path === 'status') {
+    return { static: true, house_list: meta.houses, default_house: meta.default_house, scans: meta.scans, summary_built: meta.generated,
+      generated: meta.generated, tracked: meta.tracked, named: meta.named, days: meta.days, title: meta.title };
+  }
+  if (path === 'classes') {
+    const counts = new Map();
+    (await staticItems(house)).forEach(r => { if (!r.item_class) return; const k = r.item_class + '\u0000' + (r.item_subclass || ''); counts.set(k, (counts.get(k) || 0) + 1); });
+    return [...counts.entries()].map(([k, n]) => { const [c, sc] = k.split('\u0000'); return { item_class: c, item_subclass: sc || null, n }; })
+      .sort((a, b) => a.item_class.localeCompare(b.item_class) || (a.item_subclass || '').localeCompare(b.item_subclass || ''));
+  }
+  if (path === 'search') {
+    const q = (p.q || '').trim(), ql = q.toLowerCase();
+    let rows = (await staticItems(house)).filter(r =>
+      (!q || (/^\d+$/.test(q) ? (r.item_id === +q || (r.name || '').includes(q)) : (r.name || '').toLowerCase().includes(ql))) &&
+      (!p.cls || r.item_class === p.cls) && (!p.sub || r.item_subclass === p.sub) && (!p.quality || r.quality === p.quality) &&
+      (p.listed !== '1' || r.qty > 0));
+    const sort = p.sort || (q ? 'relevance' : 'size');
+    if (sort === 'relevance' && q) {
+      const rank = r => { const n = (r.name || '').toLowerCase(); return n === ql ? 0 : n.startsWith(ql) ? 1 : 2; };
+      rows.sort((a, b) => rank(a) - rank(b) || (b.qty - a.qty) || (a.name || '').localeCompare(b.name || ''));
+    } else sortRows(rows, SORT_KEYS[sort] || SORT_KEYS.qty, p.dir === 'asc');
+    const offset = int(p.offset, 0), limit = Math.min(500, int(p.limit, 100));
+    return { house, total: rows.length, rows: rows.slice(offset, offset + limit), offset };
+  }
+  if (path === 'item') {
+    const id = int(p.id);
+    const all = await Promise.all(meta.houses.map(staticItems));
+    const houses = all.map(list => list.byId.get(id)).filter(Boolean);
+    const here = houses.find(x => x.house_key === house) || houses[0] || { item_id: id };
+    const info = Object.assign({}, here);
+    let de = null;
+    if (here.de !== null && here.de !== undefined) {
+      const br = await staticFile(house + '/de_breakdowns.json');
+      de = { value: here.de, breakdown: br[`${here.quality}|${here.item_class}|${here.item_level}`] || [] };
+    }
+    const craft = (await staticFile(house + '/crafting.json')).rows;
+    const usedIn = [];
+    craft.forEach(c => c.reagents.forEach(g => { if (g.item_id === id) usedIn.push({ recipe_id: c.recipe_id, name: c.name, profession: c.profession, output_id: c.output_id, qty: g.qty }); }));
+    return { info, houses, trades: [], vendor_price: null, cost_override: null, disenchant: de, ah_cut: meta.ah_cut,
+      made_by: craft.filter(c => c.output_id === id), used_in: usedIn, house };
+  }
+  if (path === 'history') {
+    const id = int(p.id);
+    const [tl, shard] = await Promise.all([staticFile(house + '/timeline.json'), staticFile(`${house}/h/${id % meta.shards}.json`)]);
+    const e = shard[id] || { s: [], d: [] };
+    if (p.range === 'all' || p.range === '14d') {
+      const by = new Map(e.d.map(x => [x[0], x]));
+      const points = tl.days.map((day, i) => {
+        const x = by.get(i); const [y, m, dd] = day.split('-').map(Number);
+        return { t: Date.UTC(y, m - 1, dd, 12) / 1000, market: x ? x[1] : null, min: x ? x[2] : null, qty: x ? x[3] : 0, source: x ? 'daily' : null };
+      });
+      return { range: 'all', house, granularity: 'day', points };
+    }
+    const by = new Map(e.s.map(x => [x[0], x]));
+    const points = tl.snaps.map(([t, src], i) => {
+      const x = by.get(i);
+      return { t, market: x ? x[1] : null, min: x ? x[2] : null, qty: x ? x[3] : 0, source: src === 'scan' ? 'in-game scan' : 'Blizzard snapshot' };
+    });
+    return { range: '48h', house, granularity: 'snapshot', points };
+  }
+  if (path === 'movers') {
+    const minQty = int(p.min_qty, 10), minValue = int(p.min_value, 100), limit = 25;
+    const rows = await staticItems(house);
+    const base = rows.filter(r => r.qty >= minQty && r.avg7 >= minValue && r.market > 0 && r.listings >= 3);
+    const rising = base.filter(r => r.market > r.avg7).sort((a, b) => b.market / b.avg7 - a.market / a.avg7).slice(0, limit);
+    const falling = base.filter(r => r.market < r.avg7).sort((a, b) => a.market / a.avg7 - b.market / b.avg7).slice(0, limit);
+    const deals = rows.filter(r => r.qty > 0 && r.min_unit > 0 && r.avg30 >= Math.max(minValue, 1) && r.min_unit <= r.avg30 * 0.6)
+      .sort((a, b) => (b.avg30 - b.min_unit) / b.avg30 - (a.avg30 - a.min_unit) / a.avg30).slice(0, limit);
+    return { house, rising, falling, deals, days: meta.days[house] || 0, ah_cut: meta.ah_cut };
+  }
+  if (path === 'disenchant') {
+    const d = await staticFile(house + '/disenchant.json');
+    const minProfit = int(p.min_profit, 0);
+    const rows = d.rows.map(withIcon).filter(r => (!p.quality || r.quality === p.quality) && (!p.type || r.item_class === p.type) && r.profit >= minProfit);
+    return { house, rows, total: rows.length, mats: d.mats.map(withIcon), deals_ts: d.deals_ts, ah_cut: meta.ah_cut };
+  }
+  if (path === 'crafting') {
+    const all = (await staticFile(house + '/crafting.json')).rows;
+    all.forEach(c => { if (c.output_icon && !/^https?:/.test(c.output_icon)) c.output_icon = meta.icon_base + c.output_icon; c.reagents.forEach(withIcon); });
+    const chars = [...new Set(all.map(c => c.character))].sort();
+    const mine = all.filter(c => !p.char || c.character === p.char);
+    const profs = [...new Set(mine.map(c => c.profession))].sort();
+    return { house, rows: mine.filter(c => !p.prof || c.profession === p.prof), characters: chars, professions: profs, ah_cut: meta.ah_cut };
+  }
+  throw new Error('That page is only in the ForeverLedger window on its owner\'s PC.');
+}
+
+// ---------------------------------------------------------------- routing
+function parseHash() {
+  const raw = location.hash.replace(/^#\/?/, '');
+  const [path, query] = raw.split('?');
+  const parts = (path || '').split('/').filter(Boolean);
+  return { view: parts[0] || 'market', arg: parts[1], params: Object.fromEntries(new URLSearchParams(query || '')) };
+}
+function hashFor(view, params) {
+  const qs = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)).toString();
+  return '#/' + view + (qs ? '?' + qs : '');
+}
+function go(view, params, replace) {
+  const hash = hashFor(view, params);
+  if (replace) { history.replaceState(null, '', hash); route(); } else location.hash = hash;
+}
+async function route() {
+  hideTip();
+  const r = parseHash();
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.v === (r.view === 'item' ? 'market' : r.view)));
+  const token = ++state.routeToken;
+  VIEW.classList.add('loading');
+  try {
+    const fn = VIEWS[r.view] || VIEWS.market;
+    await fn(r, token);
+  } catch (e) {
+    if (token === state.routeToken) VIEW.replaceChildren(h('div', { class: 'error' }, 'Could not load: ' + e.message));
+  } finally {
+    if (token === state.routeToken) VIEW.classList.remove('loading');
+  }
+}
+function show(token, ...nodes) {
+  if (token !== state.routeToken) return false;
+  VIEW.replaceChildren(...nodes);
+  VIEW.dataset.view = '';
+  return true;
+}
+
+// ---------------------------------------------------------------- tooltip
+function showTip(x, y, head, rows) {
+  TIP.replaceChildren(h('div', { class: 'tt-head' }, head), ...rows.map(r => h('div', { class: 'tt-row' },
+    r.color ? h('span', { class: r.box ? 'sw' : 'ln', style: 'background:' + r.color }) : null,
+    h('b', {}, r.value), h('span', { class: 'l' }, r.label))));
+  TIP.style.display = 'block';
+  const w = TIP.offsetWidth, ht = TIP.offsetHeight;
+  let left = x + 16, top = y + 14;
+  if (left + w > window.innerWidth - 8) left = x - w - 16;
+  if (top + ht > window.innerHeight - 8) top = y - ht - 14;
+  TIP.style.left = Math.max(8, left) + 'px';
+  TIP.style.top = Math.max(8, top) + 'px';
+}
+function hideTip() { TIP.style.display = 'none'; }
+
+// ---------------------------------------------------------------- charts
+function niceStep(range, count) {
+  const raw = range / Math.max(1, count);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+}
+function yScale(lo, hi, count, zero) {
+  if (zero) lo = Math.min(0, lo);
+  if (hi === lo) { hi = hi === 0 ? 1 : hi * 1.1; lo = zero ? lo : lo * 0.9; }
+  if (!zero) { const pad = (hi - lo) * 0.08; lo = Math.max(0, lo - pad); hi = hi + pad; }
+  let step = niceStep(hi - lo, count);
+  if (step < 1) step = 1;
+  const t0 = Math.floor(lo / step) * step, t1 = Math.ceil(hi / step) * step;
+  const ticks = [];
+  for (let v = t0; v <= t1 + step / 2; v += step) ticks.push(Math.round(v));
+  return { lo: t0, hi: t1, ticks };
+}
+function timeTicks(t0, t1, maxTicks) {
+  const H = 3600, D = 86400;
+  const steps = [H, 3 * H, 6 * H, 12 * H, D, 2 * D, 7 * D, 14 * D, 30 * D];
+  const step = steps.find(st => (t1 - t0) / st <= maxTicks) || 30 * D;
+  const start = new Date(t0 * 1000); start.setHours(0, 0, 0, 0);
+  const ticks = [];
+  let t = start.getTime() / 1000;
+  while (t <= t1) {
+    if (t >= t0) ticks.push(t);
+    if (step >= D) { const d = new Date(t * 1000); d.setDate(d.getDate() + step / D); t = d.getTime() / 1000; } else t += step;
+  }
+  return ticks.map(tt => {
+    const d = new Date(tt * 1000);
+    const midnight = d.getHours() === 0 && d.getMinutes() === 0;
+    return { t: tt, label: step >= D ? dayLabel(tt) : (midnight ? DAYS[d.getDay()] + ' ' + d.getDate() : clock(tt)), strong: midnight && step < D };
+  });
+}
+function roundedBar(x, y0, y1, w, up) {
+  // bar from baseline y0 to data end y1; data end rounded, baseline square
+  const hgt = Math.abs(y1 - y0);
+  const r = Math.min(4, w / 2, hgt);
+  if (w < 6 || hgt < 2 || r <= 0) return `M${x},${Math.min(y0, y1)}h${w}v${hgt}h${-w}Z`;
+  if (up) return `M${x},${y0}V${y1 + r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 + r}V${y0}Z`;
+  return `M${x},${y0}V${y1 - r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 - r}V${y0}Z`;
+}
+
+/*
+  Time chart group: several stacked charts sharing one x axis and one crosshair.
+  points: [{t, ...values}]   specs: [{kind: 'line'|'column'|'diverge', height, series: [{key,label,color}],
+                                     fmt, title, zero, endLabels}]
+  head(point) -> tooltip heading; extraRows(point) -> more tooltip rows
+*/
+function chartGroup(points, specs, opts = {}) {
+  const wrap = h('div', { class: 'chart-group', tabindex: '0', role: 'img',
+    'aria-label': opts.label || 'Chart. Use left and right arrow keys to read values.' });
+  const M = { l: 74, r: opts.right || 18, t: 10, b: 24 };
+  let hoverIdx = null, layers = [], xOf = null;
+  const fmtDefault = v => moneyText(v);
+
+  function draw() {
+    const width = Math.max(320, wrap.clientWidth || 800);
+    wrap.replaceChildren();
+    layers = [];
+    if (!points.length) { wrap.append(h('div', { class: 'empty' }, 'No data in this range.')); return; }
+    let t0 = points[0].t, t1 = points[points.length - 1].t;
+    if (t1 === t0) { t0 -= opts.pad || 1800; t1 += opts.pad || 1800; }
+    else if (opts.daily) { t0 -= 43200; t1 += 43200; }
+    const plotW = width - M.l - M.r;
+    xOf = t => M.l + (t - t0) / (t1 - t0) * plotW;
+    const slot = plotW / Math.max(1, points.length);
+    const maxT = Math.max(2, Math.floor(plotW / 95));
+    const xt = opts.daily
+      ? points.filter((pt, i) => i % Math.ceil(points.length / maxT) === 0).map(pt => ({ t: pt.t, label: dayLabel(pt.t) }))
+      : timeTicks(t0, t1, maxT);
+    const gap = opts.gap || 0;
+
+    specs.forEach((spec, si) => {
+      const last = si === specs.length - 1;
+      const H = spec.height + (last ? M.b : 6);
+      const fmt = spec.fmt || fmtDefault;
+      if (spec.title) wrap.append(h('div', { class: 'chart-title' }, spec.title));
+      const svg = s('svg', { class: 'chart', width, height: H, viewBox: `0 0 ${width} ${H}` });
+      const vals = [];
+      points.forEach(p => spec.series.forEach(se => { const v = p[se.key]; if (v !== null && v !== undefined) vals.push(v); }));
+      const lo = vals.length ? Math.min(...vals) : 0, hi = vals.length ? Math.max(...vals) : 1;
+      const sc = spec.kind === 'line' ? yScale(lo, hi, spec.ticks || 4, false) : yScale(Math.min(0, lo), Math.max(0, hi), spec.ticks || 4, true);
+      const plotH = spec.height - M.t;
+      const yOf = v => M.t + (1 - (v - sc.lo) / (sc.hi - sc.lo || 1)) * plotH;
+
+      // grid + y labels
+      sc.ticks.forEach(v => {
+        const y = Math.round(yOf(v)) + 0.5;
+        svg.append(s('line', { x1: M.l, x2: width - M.r, y1: y, y2: y, stroke: v === 0 && spec.kind !== 'line' ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }));
+        const tx = s('text', { x: M.l - 8, y: y + 4, 'text-anchor': 'end' }); tx.textContent = fmt(v); svg.append(tx);
+      });
+      if (spec.kind === 'line') {
+        const yb = Math.round(yOf(sc.lo)) + 0.5;
+        svg.append(s('line', { x1: M.l, x2: width - M.r, y1: yb, y2: yb, stroke: 'var(--axis)', 'stroke-width': 1 }));
+      }
+      if (last) xt.forEach(tk => {
+        const x = xOf(tk.t);
+        const tx = s('text', { x, y: spec.height + 17, 'text-anchor': 'middle', 'font-weight': tk.strong ? 600 : 400 });
+        tx.textContent = tk.label; svg.append(tx);
+      });
+
+      const marks = s('g', {});
+      svg.append(marks);
+      const layer = { svg, spec, yOf, marks, hover: s('g', {}), bars: [] };
+
+      if (spec.kind === 'line') {
+        spec.series.forEach(se => {
+          let d = '', open = false, lastPt = null, prevT = null, segLen = 0, segStart = null;
+          const singles = [];
+          const closeSeg = () => { if (open && segLen === 1) singles.push(segStart); open = false; segLen = 0; };
+          points.forEach(p => {
+            const v = p[se.key];
+            if (opts.maxGap && prevT !== null && p.t - prevT > opts.maxGap) closeSeg();
+            if (v === null || v === undefined) { closeSeg(); prevT = p.t; return; }
+            const x = xOf(p.t), y = yOf(v);
+            d += (open ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+            if (!open) segStart = [x, y];
+            open = true; segLen++; lastPt = [x, y, v]; prevT = p.t;
+          });
+          closeSeg();
+          marks.append(s('path', { d, fill: 'none', stroke: se.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+          singles.forEach(([x, y]) => marks.append(s('circle', { cx: x, cy: y, r: 3, fill: se.color })));
+          if (lastPt) {
+            marks.append(s('circle', { cx: lastPt[0], cy: lastPt[1], r: 4, fill: se.color, stroke: 'var(--panel)', 'stroke-width': 2 }));
+            se._end = lastPt;
+          }
+        });
+        // direct end labels only when they don't collide; otherwise legend + tooltip carry identity
+        if (spec.endLabels) {
+          const ends = spec.series.filter(se => se._end);
+          const collide = ends.length > 1 && ends.some((a, i) => ends.some((b, j) => i < j && Math.abs(a._end[1] - b._end[1]) < 14));
+          if (!collide) ends.forEach(se => {
+            const tx = s('text', { x: se._end[0] + 9, y: se._end[1] + 4 }); tx.textContent = se.label; svg.append(tx);
+          });
+        }
+      } else {
+        const bw = Math.max(1, Math.min(24, slot - Math.max(2, slot * 0.35)));
+        const y0 = yOf(0);
+        points.forEach((p, i) => {
+          spec.series.forEach(se => {
+            const v = p[se.key];
+            if (!v) { layer.bars[i] = null; return; }
+            const x = xOf(p.t) - bw / 2, y1 = yOf(v);
+            const color = spec.kind === 'diverge' ? (v >= 0 ? se.color : se.negColor) : se.color;
+            const bar = s('path', { d: roundedBar(x, y0, y1, bw, v >= 0), fill: color });
+            marks.append(bar);
+            layer.bars[i] = bar;
+          });
+        });
+      }
+      svg.append(layer.hover);
+
+      // hit layer: the whole plot is the target; nearest point wins
+      const hit = s('rect', { x: M.l, y: 0, width: plotW, height: spec.height, fill: 'transparent' });
+      hit.addEventListener('pointermove', e => {
+        const r = svg.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        let best = 0, bd = Infinity;
+        points.forEach((p, i) => { const dd = Math.abs(xOf(p.t) - x); if (dd < bd) { bd = dd; best = i; } });
+        setHover(best, e.clientX, e.clientY);
+      });
+      hit.addEventListener('pointerleave', clearHover);
+      svg.append(hit);
+      wrap.append(svg);
+      layers.push(layer);
+    });
+    if (hoverIdx !== null) setHover(hoverIdx);
+  }
+
+  function setHover(i, cx, cy) {
+    hoverIdx = i;
+    const p = points[i];
+    const rows = [];
+    layers.forEach(L => {
+      L.hover.replaceChildren();
+      const x = xOf(p.t);
+      L.hover.append(s('line', { x1: x, x2: x, y1: 0, y2: L.spec.height, stroke: 'var(--ink-3)', 'stroke-width': 1 }));
+      L.bars.forEach((b, j) => { if (b) b.setAttribute('opacity', j === i ? 1 : 0.45); });
+      L.spec.series.forEach(se => {
+        const v = p[se.key];
+        if (L.spec.kind === 'line' && v !== null && v !== undefined)
+          L.hover.append(s('circle', { cx: x, cy: L.yOf(v), r: 4.5, fill: se.color, stroke: 'var(--panel)', 'stroke-width': 2 }));
+        const color = L.spec.kind === 'diverge' ? ((v || 0) >= 0 ? se.color : se.negColor) : se.color;
+        rows.push({ color, box: L.spec.kind !== 'line',
+          value: (v === null || v === undefined) ? (se.missing || 'not listed') : (L.spec.fmt || fmtDefault)(v), label: se.label });
+      });
+    });
+    if (opts.extraRows) rows.push(...opts.extraRows(p));
+    let tx = cx, ty = cy;
+    if (tx === undefined) { const r = wrap.getBoundingClientRect(); tx = r.left + xOf(p.t); ty = r.top + 20; }
+    showTip(tx, ty, opts.head ? opts.head(p) : stamp(p.t), rows);
+  }
+  function clearHover() {
+    hoverIdx = null; hideTip();
+    layers.forEach(L => { L.hover.replaceChildren(); L.bars.forEach(b => b && b.setAttribute('opacity', 1)); });
+  }
+  wrap.addEventListener('keydown', e => {
+    if (!points.length) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const i = hoverIdx === null ? points.length - 1 : Math.max(0, Math.min(points.length - 1, hoverIdx + (e.key === 'ArrowRight' ? 1 : -1)));
+      setHover(i);
+    } else if (e.key === 'Escape') clearHover();
+  });
+  wrap.addEventListener('blur', clearHover);
+  const ro = new ResizeObserver(() => draw());
+  ro.observe(wrap);
+  requestAnimationFrame(draw);
+  return wrap;
+}
+
+function legend(items) {
+  return h('div', { class: 'legend' }, items.map(it => h('span', { class: 'key' },
+    h('span', { class: it.box ? 'sw' : 'ln', style: 'background:' + it.color }), it.label)));
+}
+
+// ---------------------------------------------------------------- header / status
+async function loadStatus() {
+  const st = await api('status');
+  state.status = st;
+  const sel = document.getElementById('house');
+  const saved = store.get('house', null);
+  const houses = st.house_list.length ? st.house_list : [st.default_house];
+  state.house = houses.includes(saved) ? saved : (houses.includes(st.default_house) ? st.default_house : houses[0]);
+  sel.replaceChildren(...houses.map(k => h('option', { value: k, selected: k === state.house }, k)));
+  sel.disabled = houses.length < 2;
+  renderFresh(st);
+  renderBanner(st);
+  state.summaryBuilt = st.summary_built;
+}
+function renderFresh(st) {
+  const scans = st.scans.filter(x => x.house_key === state.house);
+  const apiScan = scans.find(x => x.source === 'api'), game = scans.find(x => x.source === 'scan');
+  const el = document.getElementById('fresh');
+  el.replaceChildren(
+    apiScan ? h('div', {}, 'Blizzard snapshot ', h('b', {}, clock(apiScan.last)), ' · ' + ago(apiScan.last)) : null,
+    STATIC ? h('div', {}, 'Site updated ', h('b', {}, clock(st.generated)), ' · ' + ago(st.generated))
+      : (game ? h('div', {}, 'Your last scan ', h('b', {}, clock(game.last)), ' · ' + ago(game.last)) : null));
+}
+function renderBanner(st) {
+  const b = document.getElementById('banner');
+  b.replaceChildren();
+  if (!STATIC && st.tracked && st.named < st.tracked * 0.9) {
+    b.append(h('div', { class: 'banner' },
+      `Item names: ${fmtInt(st.named)} of ${fmtInt(st.tracked)} downloaded. Run `, h('code', {}, 'python fl.py names --all'),
+      ' once in the companion folder (5–10 minutes), then refresh. The hourly update also fetches 1,500 per run on its own. Until then items show as "Item #ID"; searching by ID works.'));
+  }
+}
+document.getElementById('house').addEventListener('change', e => {
+  state.house = e.target.value; store.set('house', state.house); state.market = null;
+  renderFresh(state.status); route();
+});
+// New data arrives hourly: offer a refresh instead of moving things under the reader.
+setInterval(async () => {
+  try {
+    const st = await api('status');
+    if (st.summary_built && state.summaryBuilt && st.summary_built !== state.summaryBuilt) {
+      const fresh = document.getElementById('fresh');
+      if (!fresh.querySelector('.pill')) fresh.append(h('button', { class: 'pill', onclick: async () => { await loadStatus(); state.classes = {}; state.market = null; route(); } }, 'New data · refresh'));
+    }
+  } catch (e) { /* server stopped */ }
+}, STATIC ? 300000 : 120000);
+
+// ---------------------------------------------------------------- views
+const VIEWS = {};
+const QUALITIES = [['', 'All qualities'], ['POOR', 'Poor'], ['COMMON', 'Common'], ['UNCOMMON', 'Uncommon'], ['RARE', 'Rare'], ['EPIC', 'Epic'], ['LEGENDARY', 'Legendary']];
+const SORT_OPTIONS = [
+  ['relevance', 'Best match'], ['size', 'Biggest markets'], ['qty', 'Most listed'], ['market', 'Price: high to low'],
+  ['market:asc', 'Price: low to high'], ['change', 'Rising vs 7-day median'], ['change:asc', 'Falling vs 7-day median'],
+  ['name:asc', 'Name A–Z'],
+];
+const COLS = [
+  { key: 'name', label: 'Item' }, { key: 'market', label: 'Market', num: true }, { key: 'min', label: 'Min buyout', num: true },
+  { key: 'qty', label: 'Listed', num: true }, { key: 'change', label: 'vs 7d', num: true },
+  { key: 'avg7', label: '7d median', num: true, sm: true }, { key: 'avg30', label: '30d median', num: true, sm: true },
+  { key: 'seen', label: 'Updated', num: true, sm: true },
+];
+
+VIEWS.market = async (r, token) => {
+  const p = r.params;
+  let ui = state.market;
+  if (!ui || !VIEW.contains(ui.root) || ui.house !== state.house) {
+    ui = state.market = await buildMarket();
+    if (token !== state.routeToken) return;
+    VIEW.replaceChildren(ui.root);
+  }
+  ui.sync(p);
+  await ui.load(p, token, false);
+};
+
+async function buildMarket() {
+  const house = state.house;
+  if (!state.classes[house]) state.classes[house] = await api('classes', { house });
+  const classes = state.classes[house];
+  const ui = { house, rows: [], offset: 0, total: 0, userSorted: false };
+  const q = h('input', { type: 'search', placeholder: 'Search items by name or ID', autocomplete: 'off', 'aria-label': 'Search items' });
+  const cls = h('select', { 'aria-label': 'Category' });
+  const sub = h('select', { 'aria-label': 'Subcategory' });
+  const qual = h('select', { 'aria-label': 'Quality' }, QUALITIES.map(([v, l]) => h('option', { value: v }, l)));
+  const listed = h('input', { type: 'checkbox' });
+  const sort = h('select', { 'aria-label': 'Sort' }, SORT_OPTIONS.map(([v, l]) => h('option', { value: v }, l)));
+  const classNames = [...new Set(classes.map(c => c.item_class))];
+  cls.append(h('option', { value: '' }, 'All categories'), ...classNames.map(c => h('option', { value: c }, c)));
+  function fillSub(c) {
+    sub.replaceChildren(h('option', { value: '' }, c ? 'All ' + c : 'All subcategories'),
+      ...classes.filter(x => x.item_class === c && x.item_subclass && x.item_subclass !== c).map(x => h('option', { value: x.item_subclass }, `${x.item_subclass} (${x.n})`)));
+    sub.disabled = !c;
+  }
+  fillSub('');
+  const count = h('div', { class: 'sub' });
+  const tbody = h('tbody');
+  const more = h('button', { class: 'btn', style: 'margin-top:12px;display:none' }, 'Show 100 more');
+  const thead = h('thead');
+
+  let timer = null;
+  function params() {
+    const [sk, sd] = sort.value.split(':');
+    return { q: q.value.trim(), cls: cls.value, sub: sub.value, quality: qual.value, listed: listed.checked ? '1' : '',
+      sort: (sk === 'relevance' || !ui.userSorted) ? '' : sk, dir: ui.userSorted ? (sd || '') : '' };
+  }
+  function push(replace) { go('market', params(), replace); }
+  q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => push(true), 220); });
+  cls.addEventListener('change', () => { fillSub(cls.value); push(true); });
+  sort.addEventListener('change', () => { ui.userSorted = sort.value !== 'relevance' && sort.value !== 'size'; push(true); });
+  [sub, qual].forEach(el => el.addEventListener('change', () => push(true)));
+  listed.addEventListener('change', () => push(true));
+  more.addEventListener('click', () => ui.load(Object.assign(parseHash().params), state.routeToken, true));
+
+  function header(p) {
+    const cur = p.sort || (p.q ? 'relevance' : 'size');
+    thead.replaceChildren(h('tr', {}, COLS.map(c => {
+      const sortable = c.key !== 'seen';
+      const active = cur === c.key;
+      return h('th', { class: (c.num ? 'num ' : '') + (sortable ? 'sortable ' : '') + (c.sm ? 'hide-sm' : ''),
+        onclick: sortable ? () => {
+          const dir = active && p.dir !== 'asc' ? 'asc' : (c.key === 'name' && !active ? 'asc' : '');
+          ui.userSorted = true;
+          sort.value = c.key + (dir ? ':asc' : '');
+          if (![...sort.options].some(o => o.value === sort.value)) sort.value = c.key;
+          go('market', Object.assign(params(), { sort: c.key, dir }), true);
+        } : null }, c.label, active ? h('span', { class: 'arrow' }, p.dir === 'asc' ? '▲' : '▼') : null);
+    })));
+  }
+  function row(r) {
+    const seen = r.qty ? ago(r.seen) : ('none listed · ' + ago(r.seen));
+    return clickRow(r.item_id,
+      td(itemCell(r)), td(money(r.market), 'num'), td(money(r.min_unit), 'num'),
+      td(r.qty ? fmtInt(r.qty) : h('span', { class: 'muted' }, '0'), 'num'), td(delta(r.market, r.avg7), 'num'),
+      td(money(r.avg7 || null), 'num hide-sm'), td(money(r.avg30 || null), 'num hide-sm'), td(h('span', { class: 'sub' }, seen), 'num hide-sm'));
+  }
+  ui.sync = p => {
+    if (p.sort) ui.userSorted = true;
+    if (document.activeElement !== q) q.value = p.q || '';
+    if (cls.value !== (p.cls || '')) { cls.value = p.cls || ''; fillSub(cls.value); }
+    sub.value = p.sub || ''; qual.value = p.quality || ''; listed.checked = p.listed === '1';
+    const sv = (p.sort || (p.q ? 'relevance' : 'size')) + (p.dir === 'asc' ? ':asc' : '');
+    sort.value = [...sort.options].some(o => o.value === sv) ? sv : (p.sort || 'size');
+    header(p);
+  };
+  ui.load = async (p, token, append) => {
+    const offset = append ? ui.rows.length : 0;
+    const data = await api('search', Object.assign({}, p, { house, offset, limit: 100 }));
+    if (token !== state.routeToken && !append) return;
+    if (!append) { ui.rows = []; tbody.replaceChildren(); }
+    ui.rows.push(...data.rows);
+    tbody.append(...data.rows.map(row));
+    ui.total = data.total;
+    count.textContent = data.total ? `${fmtInt(data.total)} items · showing ${fmtInt(ui.rows.length)}` : '';
+    if (!data.total) tbody.append(h('tr', {}, h('td', { colspan: COLS.length, class: 'empty' }, p.q ? `Nothing matches "${p.q}".` : 'No items yet.')));
+    more.style.display = ui.rows.length < data.total ? '' : 'none';
+  };
+  ui.root = h('div', {},
+    h('div', { class: 'controls' }, q, cls, sub, qual, h('label', { class: 'check' }, listed, 'Listed now'), h('span', { class: 'spacer', style: 'flex:1' }), sort),
+    h('div', { class: 'card' }, count, h('div', { style: 'overflow:auto' }, h('table', {}, thead, tbody)), more));
+  setTimeout(() => q.focus(), 0);
+  return ui;
+}
+
+// ---- item
+VIEWS.item = async (r, token) => {
+  const id = parseInt(r.arg, 10);
+  let range = r.params.range || store.get('range', '14d');
+  if (STATIC && range === '14d') range = '48h';
+  const [item, hist] = await Promise.all([api('item', { id, house: state.house }), api('history', { id, house: state.house, range })]);
+  const info = item.info;
+  const cur = item.houses.find(x => x.house_key === state.house);
+  const meta = [info.item_class, info.item_subclass].filter(Boolean).join(' · ');
+  const extras = [];
+  if (info.item_level) extras.push('Item level ' + info.item_level);
+  if (info.required_level) extras.push('Requires level ' + info.required_level);
+
+  const head = h('div', { class: 'itemhead' }, icon(info.icon, 58, info.quality),
+    h('div', {},
+      h('div', { class: 'nm ' + qcls(info.quality) }, itemName(info)),
+      h('div', { class: 'meta' }, [meta, ...extras].filter(Boolean).join('  ·  ') || 'Item #' + id),
+      h('div', { class: 'links' },
+        info.sell_price ? h('span', { class: 'sub' }, 'Vendor buys for ', money(info.sell_price), '   ') : null,
+        item.vendor_price ? h('span', { class: 'sub' }, 'Vendor sells for ', money(item.vendor_price), '   ') : null,
+        h('a', { class: 'linkish', href: 'https://www.wowhead.com/forever/item=' + id, target: '_blank', rel: 'noopener' }, 'Wowhead ↗'))));
+
+  const tiles = h('div', { class: 'tiles' },
+    tile('Market', cur ? money(cur.market) : '—', cur && !cur.qty ? 'last seen ' + ago(cur.seen) : 'cheapest 15% of units'),
+    tile('Min buyout', cur ? money(cur.min_unit) : '—'),
+    tile('Listed now', cur ? fmtInt(cur.qty) : '—', cur && cur.listings ? fmtInt(cur.listings) + ' auctions' : null),
+    tile('7-day median', cur ? money(cur.avg7 || null) : '—', cur ? delta(cur.market, cur.avg7) : null),
+    tile('30-day median', cur ? money(cur.avg30 || null) : '—', cur ? delta(cur.market, cur.avg30) : null),
+    tile('24h change', cur ? delta(cur.market, cur.prev_market) : '—', cur && cur.prev_market ? 'from ' + moneyText(cur.prev_market) : 'needs a day of data'));
+
+  // price history
+  const rangeSeg = h('div', { class: 'seg' }, (STATIC ? [['48h', '48 hours'], ['all', 'Daily']] : [['48h', '48 hours'], ['14d', '14 days'], ['all', 'All time']]).map(([v, l]) =>
+    h('button', { class: v === range ? 'on' : '', onclick: () => { store.set('range', v); go('item/' + id, { range: v }, true); } }, l)));
+  const pts = hist.points;
+  const daily = hist.granularity === 'day';
+  const charts = chartGroup(pts, [
+    { kind: 'line', height: 230, series: [{ key: 'market', label: 'Market', color: 'var(--s-market)' }, { key: 'min', label: 'Min buyout', color: 'var(--s-min)' }], endLabels: true },
+    { kind: 'column', height: 90, ticks: 2, title: daily ? 'Average quantity listed' : 'Quantity listed', fmt: v => fmtInt(v),
+      series: [{ key: 'qty', label: daily ? 'avg listed' : 'listed', color: 'var(--s-qty)', missing: '0' }] },
+  ], { right: 86, daily, maxGap: daily ? 1.6 * 86400 : 2.6 * 3600, pad: daily ? 43200 : 1800,
+       head: p => (daily ? dayLabel(p.t) : stamp(p.t)) + (p.source ? '  ·  ' + p.source : ''),
+       label: 'Price history for ' + itemName(info) });
+  const tableBox = h('div', { style: 'display:none;margin-top:12px;max-height:340px;overflow:auto' });
+  const tableBtn = h('button', { class: 'btn', onclick: () => {
+    const open = tableBox.style.display === 'none';
+    tableBox.style.display = open ? '' : 'none';
+    tableBtn.textContent = open ? 'Hide table' : 'Show as table';
+    if (open && !tableBox.firstChild) tableBox.append(h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}, daily ? 'Day' : 'Time'), h('th', { class: 'num' }, 'Market'), h('th', { class: 'num' }, 'Min buyout'), h('th', { class: 'num' }, 'Listed'), h('th', {}, 'Source'))),
+      h('tbody', {}, [...pts].reverse().map(p => h('tr', {}, td(daily ? dayLabel(p.t) : stamp(p.t)), td(money(p.market), 'num'), td(money(p.min), 'num'), td(fmtInt(p.qty), 'num'), td(h('span', { class: 'sub' }, p.source || '')))))));
+  } }, 'Show as table');
+  const priceCard = h('div', { class: 'card' },
+    h('div', { class: 'chart-head' }, h('h2', { style: 'margin:0' }, 'Price history'), rangeSeg,
+      legend([{ label: 'Market', color: 'var(--s-market)' }, { label: 'Min buyout', color: 'var(--s-min)' }]),
+      h('span', { style: 'flex:1' }), tableBtn),
+    pts.some(p => p.market !== null) ? charts : h('div', { class: 'empty' }, 'Not listed at this auction house in this range.'),
+    daily && pts.length < 3 ? h('div', { class: 'note' }, 'All-time shows one point per day; it fills in as days go by.') : null,
+    tableBox);
+
+  // other houses
+  const others = item.houses.filter(x => x.house_key !== state.house);
+  const othersCard = others.length ? h('div', { class: 'card' }, h('h2', {}, 'Other auction houses'),
+    h('table', {}, h('thead', {}, h('tr', {}, h('th', {}, 'House'), h('th', { class: 'num' }, 'Market'), h('th', { class: 'num' }, 'Min buyout'), h('th', { class: 'num' }, 'Listed'), h('th', { class: 'num' }, 'vs here'))),
+      h('tbody', {}, others.map(o => h('tr', {}, td(o.house_key), td(money(o.market), 'num'), td(money(o.min_unit), 'num'), td(fmtInt(o.qty), 'num'), td(cur ? delta(o.market, cur.market) : '—', 'num')))))) : null;
+
+  // your trades
+  const tr = item.trades;
+  const sum = k => tr.filter(t => t.kind === k);
+  const soldRows = sum('sale'), boughtRows = sum('buy');
+  const soldQty = soldRows.reduce((a, t) => a + (t.qty || 0), 0), soldGross = soldRows.reduce((a, t) => a + (t.gross || 0), 0);
+  const boughtQty = boughtRows.reduce((a, t) => a + (t.qty || 0), 0), boughtGross = boughtRows.reduce((a, t) => a + (t.gross || 0), 0);
+  const tradesCard = h('div', { class: 'card' }, h('h2', {}, 'Your trades'),
+    tr.length ? [
+      h('div', { class: 'tiles', style: 'margin-bottom:12px' },
+        tile('Sold', fmtInt(soldQty), soldQty ? ['avg ', money(soldGross / soldQty)] : null),
+        tile('Bought', fmtInt(boughtQty), boughtQty ? ['avg ', money(boughtGross / boughtQty)] : null),
+        tile('Posted', fmtInt(sum('post').reduce((a, t) => a + (t.qty || 0), 0))),
+        tile('Expired / cancelled', fmtInt([...sum('expired'), ...sum('cancelled')].reduce((a, t) => a + (t.qty || 0), 0)))),
+      ledgerTable(tr.map(t => Object.assign({}, t, { name: info.name, quality: info.quality, icon: info.icon, item_id: id })), true),
+    ] : h('div', { class: 'empty' }, 'You haven\'t posted, sold or bought this yet.'));
+
+  // crafting
+  const craftCard = (item.made_by.length || item.used_in.length) ? h('div', { class: 'card' }, h('h2', {}, 'Crafting'),
+    item.made_by.map(m => h('div', { class: 'sub', style: 'margin-bottom:6px' }, `${m.character} makes it (${m.profession}): cost `, money(m.cost), m.missing ? ' + unpriced reagents' : '', ' · profit ', m.profit === null ? '—' : money(m.profit))),
+    item.used_in.length ? h('div', { class: 'sub' }, 'Used in: ', item.used_in.map((u, i) => [i ? ', ' : '', h('a', { class: 'linkish', href: '#/item/' + u.output_id }, u.name), ` (${u.qty})`])) : null) : null;
+
+  const de = item.disenchant;
+  const deCard = de ? h('div', { class: 'card' }, h('h2', {}, 'Disenchant'),
+    de.blocked ? h('div', { class: 'empty' }, "This item can't be disenchanted.") : [
+      h('div', { class: 'tiles', style: 'margin-bottom:12px' },
+        tile('Disenchant value', money(de.value), 'average, after the ' + Math.round(item.ah_cut * 100) + '% cut on materials'),
+        cur && cur.qty ? tile('Vs cheapest listing', cur.min_unit < de.value ? h('span', { class: 'delta up' }, '▲ ', money(de.value - cur.min_unit))
+          : h('span', { class: 'delta flat' }, money(cur.min_unit - de.value) , ' over'), cur.min_unit < de.value ? 'profit if you buy and disenchant' : 'costs more than it disenchants for') : null),
+      deBreakdown(de.breakdown)]) : null;
+  show(token, h('div', { class: 'stack' },
+    h('a', { class: 'back', href: '#', onclick: e => { e.preventDefault(); if (history.length > 1) history.back(); else location.hash = '#/market'; } }, '← Back'),
+    head, tiles, priceCard, othersCard, h('div', { class: 'grid cols-2' }, STATIC ? null : tradesCard, deCard, craftCard)));
+};
+
+// ---- disenchant
+const CHANCE = c => (c * 100 >= 10 || c * 100 === Math.round(c * 100) ? Math.round(c * 100) : (c * 100).toFixed(1)) + '%';
+const QTY = (a, b) => a === b ? String(a) : a + '–' + b;
+function deBreakdown(breakdown, compare) {
+  const total = breakdown.reduce((a, b) => a + b.value, 0);
+  return h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}, 'Result'), h('th', { class: 'num' }, 'Chance'), h('th', { class: 'num' }, 'Qty'),
+      h('th', { class: 'num' }, 'Price each'), h('th', { class: 'num' }, 'Expected'))),
+    h('tbody', {}, breakdown.map(b => h('tr', {},
+      td(h('a', { class: 'linkish', href: '#/item/' + b.item_id }, b.name)), td(CHANCE(b.chance), 'num'), td(QTY(b.qmin, b.qmax), 'num'),
+      td(b.price ? money(b.price) : h('span', { class: 'muted' }, 'no price'), 'num'), td(money(b.value), 'num'))),
+      h('tr', {}, td(h('b', {}, 'Expected value (after cut)')), td(''), td(''), td(''), td(h('b', {}, money(total)), 'num')),
+      compare ? h('tr', {}, td(compare.label), td(''), td(''), td(''), td(money(compare.value), 'num')) : null));
+}
+const deHidden = new Set(store.get('deHidden', []));
+VIEWS.disenchant = async (r, token) => {
+  const p = Object.assign({ min_profit: '100' }, r.params);
+  const data = await api('disenchant', Object.assign({ house: state.house }, p));
+  const set = (k, v) => go('disenchant', Object.assign({}, p, { [k]: v }), true);
+  const sel = (label, key, opts) => h('select', { 'aria-label': label, onchange: e => set(key, e.target.value) },
+    opts.map(([v, l]) => h('option', { value: v, selected: v === (p[key] || '') }, l)));
+  const showHidden = p.hidden === '1';
+  const rows = data.rows.filter(x => showHidden || !deHidden.has(x.item_id));
+  const hiddenCount = data.rows.filter(x => deHidden.has(x.item_id)).length;
+  const withCounts = rows.filter(x => x.n_below !== null);
+  const sumCheapest = rows.reduce((a, x) => a + x.profit, 0);
+  const sumAll = withCounts.reduce((a, x) => a + x.profit_below, 0);
+  const best = rows[0];
+
+  const tb = h('tbody');
+  rows.forEach(x => {
+    const detail = h('tr', { style: 'display:none' }, h('td', { colspan: 8 }, h('div', { style: 'max-width:640px;margin:4px 0 10px 36px' },
+      deBreakdown(x.breakdown, { label: 'Cheapest listing', value: x.min_unit }),
+      h('div', { class: 'note' }, h('a', { class: 'linkish', href: '#/item/' + x.item_id }, 'Price history for ' + itemName(x) + ' ›')))));
+    const toggle = () => { detail.style.display = detail.style.display === 'none' ? '' : 'none'; };
+    const hidden = deHidden.has(x.item_id);
+    const hideBtn = h('button', { class: 'btn', style: 'padding:3px 8px', title: hidden ? 'Show this item again' : "Hide it (for example, if it can't be disenchanted)",
+      onclick: e => { e.stopPropagation(); if (hidden) deHidden.delete(x.item_id); else deHidden.add(x.item_id); store.set('deHidden', [...deHidden]); route(); } },
+      hidden ? 'Unhide' : 'Hide');
+    const sub = ['iLvl ' + x.item_level, x.item_subclass, x.item_class].filter(Boolean).join(' · ');
+    tb.append(h('tr', { class: 'click', tabindex: '0', onclick: toggle, onkeydown: e => { if (e.key === 'Enter') toggle(); } },
+      td(itemCell(Object.assign({}, x, { item_class: sub, item_subclass: null }))),
+      td(money(x.min_unit), 'num'), td(money(x.de_value), 'num'),
+      td(h('span', { class: 'delta up' }, '▲ ', money(x.profit)), 'num'),
+      td(Math.round(x.profit / x.min_unit * 100) + '%', 'num'),
+      td(x.n_below === null ? h('span', { class: 'muted', title: 'Counted at the next hourly Blizzard pull' }, '—')
+        : h('span', {}, fmtInt(x.n_below), h('span', { class: 'sub' }, ' · ', money(x.profit_below))), 'num'),
+      td(fmtInt(x.qty), 'num hide-sm'), td(hideBtn, 'num')), detail);
+  });
+
+  const groups = [['Dust', m => /Dust/.test(m.name)], ['Essences', m => /Essence/.test(m.name)], ['Shards and crystals', m => /Shard|Crystal/.test(m.name)]];
+  const matsCard = h('div', { class: 'card' }, h('h2', {}, 'Material prices used'),
+    h('div', { class: 'grid', style: 'grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px' },
+      groups.map(([title, f]) => h('div', {}, h('div', { class: 'label', style: 'margin-bottom:6px' }, title), h('table', {}, h('tbody', {},
+        data.mats.filter(f).map(m => clickRow(m.item_id, td(itemCell(m, { size: 20, noCat: true })), td(money(m.market), 'num'),
+          td(h('span', { class: 'sub' }, fmtInt(m.qty) + ' listed'), 'num')))))))),
+    h('div', { class: 'note' }, `Market price (average of the cheapest 15% listed). Disenchant values subtract the ${Math.round(data.ah_cut * 100)}% cut you pay when you sell the materials.`));
+
+  show(token, h('div', { class: 'stack' },
+    h('div', { class: 'controls' }, h('h1', {}, 'Disenchant flips'), h('span', { style: 'flex:1' }),
+      sel('Quality', 'quality', [['', 'All qualities'], ['UNCOMMON', 'Uncommon'], ['RARE', 'Rare'], ['EPIC', 'Epic']]),
+      sel('Type', 'type', [['', 'Armor and weapons'], ['Armor', 'Armor'], ['Weapon', 'Weapons']]),
+      sel('Minimum profit', 'min_profit', [['0', 'Any profit'], ['100', '1s+ profit'], ['1000', '10s+ profit'], ['10000', '1g+ profit'], ['50000', '5g+ profit']]),
+      hiddenCount ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: showHidden, onchange: e => set('hidden', e.target.checked ? '1' : '') }), `Show ${hiddenCount} hidden`) : null),
+    h('div', { class: 'tiles' },
+      tile('Under disenchant value', fmtInt(rows.length), 'items whose cheapest listing is below it'),
+      tile('Buying the cheapest of each', money(sumCheapest), 'expected profit after disenchanting'),
+      tile('Buying every listing under it', withCounts.length ? money(sumAll) : '—', data.deals_ts ? 'from the ' + clock(data.deals_ts) + ' Blizzard snapshot' : 'counted at the next hourly pull'),
+      tile('Best single flip', best ? money(best.profit) : '—', best ? itemName(best) : null)),
+    h('div', { class: 'card' },
+      rows.length ? h('div', { style: 'overflow:auto' }, h('table', {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', { class: 'num' }, 'Cheapest'), h('th', { class: 'num' }, 'Disenchant value'),
+          h('th', { class: 'num' }, 'Profit each'), h('th', { class: 'num' }, 'Return'), h('th', { class: 'num' }, 'Listed under value'),
+          h('th', { class: 'num hide-sm' }, 'Listed'), h('th', {}, ''))), tb))
+        : h('div', { class: 'empty' }, 'Nothing is listed under its disenchant value with these filters right now.'),
+      h('div', { class: 'note' }, 'Click a row to see what it disenchants into. Disenchant value is an average: one item can roll low (dust instead of an essence), so it pays off over many. Forever lets any Enchanting skill disenchant any item. Enchanter-made wands can\'t be disenchanted and are left out; if you find another item that can\'t be, Hide it.')),
+    matsCard));
+};
+
+// ---- movers
+VIEWS.movers = async (r, token) => {
+  const p = Object.assign({ min_qty: '10', min_value: '100' }, r.params);
+  const data = await api('movers', Object.assign({ house: state.house }, p));
+  const qtySel = h('select', { 'aria-label': 'Minimum listed', onchange: e => go('movers', Object.assign({}, p, { min_qty: e.target.value }), true) },
+    [['1', 'Any quantity'], ['10', '10+ listed'], ['50', '50+ listed'], ['200', '200+ listed']].map(([v, l]) => h('option', { value: v, selected: v === p.min_qty }, l)));
+  const valSel = h('select', { 'aria-label': 'Minimum value', onchange: e => go('movers', Object.assign({}, p, { min_value: e.target.value }), true) },
+    [['0', 'Any price'], ['100', '1s+'], ['10000', '1g+'], ['100000', '10g+']].map(([v, l]) => h('option', { value: v, selected: v === p.min_value }, l)));
+  const moverTable = (rows, empty) => rows.length ? h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', { class: 'num' }, 'Market'), h('th', { class: 'num' }, '7d median'), h('th', { class: 'num' }, 'Change'), h('th', { class: 'num hide-sm' }, 'Listed'))),
+    h('tbody', {}, rows.map(x => clickRow(x.item_id, td(itemCell(x)), td(money(x.market), 'num'), td(money(x.avg7), 'num'), td(delta(x.market, x.avg7), 'num'), td(fmtInt(x.qty), 'num hide-sm')))))
+    : h('div', { class: 'empty' }, empty);
+  const cut = data.ah_cut;
+  const deals = data.deals.length ? h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', { class: 'num' }, 'Min buyout'), h('th', { class: 'num' }, '30d median'), h('th', { class: 'num' }, 'Below median'), h('th', { class: 'num' }, 'Resale profit / unit'), h('th', { class: 'num hide-sm' }, 'Listed'))),
+    h('tbody', {}, data.deals.map(x => {
+      const profit = Math.round(x.avg7 * (1 - cut) - x.min_unit);
+      return clickRow(x.item_id, td(itemCell(x)), td(money(x.min_unit), 'num'), td(money(x.avg30), 'num'),
+        td(h('span', { class: 'delta down' }, '▼ ' + Math.round((1 - x.min_unit / x.avg30) * 100) + '%'), 'num'),
+        td(profit > 0 ? money(profit) : h('span', { class: 'muted' }, '—'), 'num'), td(fmtInt(x.qty), 'num hide-sm'));
+    }))) : h('div', { class: 'empty' }, 'Nothing listed far below its usual price right now.');
+  show(token, h('div', { class: 'stack' },
+    h('div', { class: 'controls' }, h('h1', {}, 'Market movers'), h('span', { style: 'flex:1' }), qtySel, valSel),
+    data.days < 7 ? h('div', { class: 'note' }, `Medians come from ${data.days} day${data.days === 1 ? '' : 's'} of data so far; movers get more reliable after a week.`) : null,
+    h('div', { class: 'grid cols-2' },
+      h('div', { class: 'card' }, h('h2', {}, 'Rising vs 7-day median'), moverTable(data.rising, 'Nothing is rising with these filters.')),
+      h('div', { class: 'card' }, h('h2', {}, 'Falling vs 7-day median'), moverTable(data.falling, 'Nothing is falling with these filters.'))),
+    h('div', { class: 'card' }, h('h2', {}, 'Possible deals: cheapest listing at least 40% under the 30-day median'),
+      deals, h('div', { class: 'note' }, `Resale profit = 7-day median minus the ${Math.round(cut * 100)}% auction cut minus the price you pay. Gear with random suffixes ("of the Bear") shares one item ID, so check the listing before buying.`))));
+};
+
+// ---- ledger
+const KIND = { sale: ['Sold', 'up'], buy: ['Bought', 'down'], post: ['Posted', 'flat'], expired: ['Expired', 'flat'], cancelled: ['Cancelled', 'flat'] };
+function ledgerTable(rows, compact) {
+  return h('div', { style: 'max-height:460px;overflow:auto' }, h('table', {},
+    h('thead', {}, h('tr', {}, h('th', {}, 'When'), compact ? null : h('th', { class: 'hide-sm' }, 'Character'), h('th', {}, 'Type'),
+      compact ? null : h('th', {}, 'Item'), h('th', { class: 'num' }, 'Qty'), h('th', { class: 'num' }, 'Each'), h('th', { class: 'num' }, 'Total'))),
+    h('tbody', {}, rows.map(e => {
+      const k = KIND[e.kind] || [e.kind, 'flat'];
+      const total = e.kind === 'sale' ? e.net : e.gross;
+      const cells = [td(h('span', { class: 'sub', style: 'white-space:nowrap' }, shortStamp(e.ts))), compact ? null : td(h('span', { class: 'sub' }, (e.character || '').split('-')[0]), 'hide-sm'),
+        td(h('span', { class: 'delta ' + k[1] }, k[0])), compact ? null : td(itemCell(e, { size: 20, noCat: true })),
+        td(fmtInt(e.qty), 'num'), td(money(e.unit_price), 'num'), td(money(total), 'num')];
+      return e.item_id && !compact ? clickRow(e.item_id, ...cells) : h('tr', {}, ...cells);
+    }))));
+}
+VIEWS.ledger = async (r, token) => {
+  const p = Object.assign({ days: '30' }, r.params);
+  const data = await api('ledger', p);
+  const t = k => data.totals[k] || { n: 0, qty: 0, gross: 0, net: 0 };
+  const sales = t('sale'), buys = t('buy');
+  const net = (sales.net || 0) - (buys.gross || 0);
+  const seg = h('div', { class: 'seg' }, [['1', 'Today'], ['7', '7 days'], ['30', '30 days'], ['90', '90 days'], ['0', 'All']].map(([v, l]) =>
+    h('button', { class: v === p.days ? 'on' : '', onclick: () => go('ledger', Object.assign({}, p, { days: v }), true) }, l)));
+  const charSel = h('select', { 'aria-label': 'Character', onchange: e => go('ledger', Object.assign({}, p, { char: e.target.value }), true) },
+    h('option', { value: '' }, 'All characters'), data.characters.map(c => h('option', { value: c, selected: c === p.char }, c)));
+  const points = data.daily.map(d => {
+    const [y, m, dd] = d.day.split('-').map(Number);
+    return { t: new Date(y, m - 1, dd, 12).getTime() / 1000, net: (d.sales || 0) - (d.purchases || 0), sales: d.sales || 0, purchases: d.purchases || 0 };
+  });
+  const chart = points.length ? chartGroup(points, [{ kind: 'diverge', height: 200,
+    series: [{ key: 'net', label: 'net gold', color: 'var(--pos)', negColor: 'var(--neg)' }] }],
+    { pad: 43200, daily: true, head: pt => dayLabel(pt.t), label: 'Daily net gold from the auction house',
+      extraRows: pt => [{ value: moneyText(pt.sales), label: 'from sales (after cut)' }, { value: moneyText(pt.purchases), label: 'spent on purchases' }] })
+    : h('div', { class: 'empty' }, 'No sales or purchases in this period yet. Sales count when you collect the gold from your mailbox.');
+  show(token, h('div', { class: 'stack' },
+    h('div', { class: 'controls' }, h('h1', {}, 'Ledger'), h('span', { style: 'flex:1' }), seg, charSel),
+    h('div', { class: 'tiles' },
+      tile('Sales (after cut)', money(sales.net || 0), `${fmtInt(sales.n)} auctions · ${fmtInt(sales.qty || 0)} items`),
+      tile('Purchases', money(buys.gross || 0), `${fmtInt(buys.n)} auctions · ${fmtInt(buys.qty || 0)} items`),
+      tile('Net gold', h('span', { class: 'delta ' + (net >= 0 ? 'up' : 'down') }, net >= 0 ? '▲ ' : '▼ ', money(Math.abs(net))), 'sales minus purchases'),
+      tile('AH cut paid', money(sales.cut || 0), 'deposits refunded: ' + moneyText(sales.deposit || 0)),
+      tile('Posted', fmtInt(t('post').qty || 0), `${fmtInt(t('post').n)} auctions`),
+      tile('Expired / cancelled', fmtInt((t('expired').qty || 0) + (t('cancelled').qty || 0)), `${fmtInt(t('expired').n + t('cancelled').n)} auctions`)),
+    h('div', { class: 'card' }, h('div', { class: 'chart-head' }, h('h2', { style: 'margin:0' }, 'Daily net gold'),
+      legend([{ label: 'Gained', color: 'var(--pos)', box: true }, { label: 'Spent more than earned', color: 'var(--neg)', box: true }])), chart),
+    h('div', { class: 'stack' },
+      h('div', { class: 'card' }, h('h2', {}, 'Top sellers'), data.top.length ? h('table', {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'Item'), h('th', { class: 'num' }, 'Sold'), h('th', { class: 'num' }, 'Avg each'), h('th', { class: 'num' }, 'Net'))),
+        h('tbody', {}, data.top.map(x => (x.item_id ? clickRow.bind(null, x.item_id) : (...c) => h('tr', {}, ...c))(
+          td(itemCell(x, { size: 22, noCat: true })), td(fmtInt(x.qty), 'num'), td(money(x.qty ? x.gross / x.qty : null), 'num'), td(money(x.net), 'num')))))
+        : h('div', { class: 'empty' }, 'No sales in this period yet.')),
+      h('div', { class: 'card' }, h('h2', {}, 'Every entry'), data.entries.length ? ledgerTable(data.entries) : h('div', { class: 'empty' }, 'Nothing recorded in this period.')))));
+};
+
+// ---- crafting
+VIEWS.crafting = async (r, token) => {
+  const p = r.params;
+  const data = await api('crafting', Object.assign({ house: state.house }, p));
+  const charSel = h('select', { 'aria-label': 'Character', onchange: e => go('crafting', Object.assign({}, p, { char: e.target.value, prof: '' }), true) },
+    h('option', { value: '' }, 'All characters'), data.characters.map(c => h('option', { value: c, selected: c === p.char }, c)));
+  const profSel = h('select', { 'aria-label': 'Profession', onchange: e => go('crafting', Object.assign({}, p, { prof: e.target.value }), true) },
+    h('option', { value: '' }, 'All professions'), data.professions.map(c => h('option', { value: c, selected: c === p.prof }, c)));
+  let body;
+  if (!data.rows.length) {
+    body = h('div', { class: 'card empty' }, STATIC ? 'No crafting recipes have been shared yet.' : 'No recipes saved yet. Open each profession window once in game, then /reload or log out. The next hourly update brings them here.');
+  } else {
+    const tb = h('tbody');
+    data.rows.forEach(m => {
+      const detail = h('tr', { style: 'display:none' }, h('td', { colspan: 7 }, h('table', { class: 'reagents' }, h('tbody', {},
+        m.reagents.map(g => h('tr', {}, td(fmtInt(g.qty) + ' ×'), td(h('a', { class: 'linkish ' + qcls(g.quality), href: '#/item/' + g.item_id }, g.name || ('Item #' + g.item_id))),
+          td(money(g.unit), 'num'), td(g.source)))))));
+      const main = h('tr', { class: 'click', tabindex: '0', onclick: () => { detail.style.display = detail.style.display === 'none' ? '' : 'none'; },
+        onkeydown: e => { if (e.key === 'Enter') detail.style.display = detail.style.display === 'none' ? '' : 'none'; } },
+        td(itemCell({ item_id: m.output_id, name: m.name, quality: m.output_quality, icon: m.output_icon, item_class: m.profession,
+          item_subclass: (m.character || '').split('-')[0] + (m.output_qty !== 1 ? ' · makes ' + m.output_qty : '') })),
+        td([money(m.cost), m.missing ? h('span', { class: 'delta down', title: 'Some reagents have no price yet' }, ' +?') : null], 'num'),
+        td(money(m.sell), 'num'),
+        td(m.profit === null ? h('span', { class: 'muted' }, '—') : h('span', { class: 'delta ' + (m.profit >= 0 ? 'up' : 'down') }, m.profit >= 0 ? '▲ ' : '▼ ', money(Math.abs(m.profit))), 'num'),
+        td(m.margin === null ? '—' : Math.round(m.margin * 100) + '%', 'num'),
+        td(fmtInt(m.listed), 'num hide-sm'),
+        td(h('a', { class: 'linkish', href: '#/item/' + m.output_id, onclick: e => e.stopPropagation() }, 'Prices ›'), 'num'));
+      tb.append(main, detail);
+    });
+    body = h('div', { class: 'card' }, h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}, 'Recipe'), h('th', { class: 'num' }, 'Reagent cost'), h('th', { class: 'num' }, 'Sells for'), h('th', { class: 'num' }, 'Profit'), h('th', { class: 'num' }, 'Margin'), h('th', { class: 'num hide-sm' }, 'Listed'), h('th', {}, ''))), tb),
+      h('div', { class: 'note' }, `Click a recipe to see its reagents. Reagent cost uses your /fl cost overrides, then vendor prices, then the auction house. Profit is the output's market value after the ${Math.round(data.ah_cut * 100)}% cut, minus reagent cost.`));
+  }
+  show(token, h('div', { class: 'stack' }, h('div', { class: 'controls' }, h('h1', {}, 'Crafting margins'), h('span', { style: 'flex:1' }), charSel, profSel), body));
+};
+
+// ---- status
+VIEWS.status = async (r, token) => {
+  const st = await api('status');
+  state.status = st;
+  renderFresh(st); renderBanner(st);
+  if (STATIC) {
+    return show(token, h('div', { class: 'stack' }, h('h1', {}, 'About this data'),
+      h('div', { class: 'tiles' },
+        tile('Items tracked', fmtInt(st.tracked), `${fmtInt(st.named)} with names`),
+        tile('Days of history', fmtInt(Math.max(0, ...Object.values(st.days || {}))), 'daily history kept for 90 days here'),
+        tile('Site updated', clock(st.generated), ago(st.generated))),
+      h('div', { class: 'card' }, h('h2', {}, 'Data sources'), h('table', {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'House'), h('th', {}, 'Source'), h('th', { class: 'num' }, 'Snapshots'), h('th', { class: 'num' }, 'First'), h('th', { class: 'num' }, 'Latest'))),
+        h('tbody', {}, st.scans.map(x => h('tr', {}, td(x.house_key), td(x.source === 'api' ? 'Blizzard hourly snapshot' : 'In-game full scan'),
+          td(fmtInt(x.n), 'num'), td(stamp(x.first), 'num'), td(stamp(x.last) + ' · ' + ago(x.last), 'num')))))),
+      h('div', { class: 'card' }, h('h2', {}, 'How it works'), h('div', { class: 'sub', style: 'line-height:1.6' },
+        'Prices come from Blizzard\'s hourly auction snapshots and in-game full scans, collected by ForeverLedger and published here once an hour. ',
+        'Market is the average of the cheapest 15% of units listed. Disenchant values weight each possible result by its chance and average quantity, ',
+        `priced at the materials' market value minus the ${Math.round((SC.meta.ah_cut || 0.05) * 100)}% auction cut.`))));
+  }
+  const kb = st.db_bytes / 1024;
+  show(token, h('div', { class: 'stack' }, h('h1', {}, 'Status'),
+    h('div', { class: 'tiles' },
+      tile('Items tracked', fmtInt(st.tracked), st.houses.map(x => `${x.house_key}: ${fmtInt(x.listed)} listed now`).join(' · ')),
+      tile('Names downloaded', fmtInt(st.named), `${fmtInt(st.with_icons)} with icons`),
+      tile('Days of history', fmtInt(st.days), `${fmtInt(st.snapshot_rows)} hourly rows kept`),
+      tile('Ledger entries', fmtInt(st.ledger), `${fmtInt(st.recipes)} recipes saved`),
+      tile('Database', kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : Math.round(kb) + ' KB', 'summary rebuilt ' + ago(st.summary_built)),
+      tile('Blizzard API', st.api_configured ? 'Connected' : 'Not set up', Object.entries(st.configured_houses).map(([k, v]) => `${k} = house ${v}`).join(' · ') || 'run fl.py detect')),
+    h('div', { class: 'card' }, h('h2', {}, 'Data sources'), h('table', {},
+      h('thead', {}, h('tr', {}, h('th', {}, 'House'), h('th', {}, 'Source'), h('th', { class: 'num' }, 'Snapshots'), h('th', { class: 'num' }, 'First'), h('th', { class: 'num' }, 'Latest'))),
+      h('tbody', {}, st.scans.map(x => h('tr', {}, td(x.house_key), td(x.source === 'api' ? 'Blizzard hourly snapshot' : 'Your in-game scans'),
+        td(fmtInt(x.n), 'num'), td(stamp(x.first), 'num'), td(stamp(x.last) + ' · ' + ago(x.last), 'num')))))),
+    h('div', { class: 'card' }, h('h2', {}, 'Companion log (fl.log)'), h('pre', { class: 'log' }, st.log.join('\n') || 'No log yet.'))));
+};
+
+// ---------------------------------------------------------------- start
+if (STATIC) {
+  document.querySelector('#nav a[data-v="ledger"]').remove();
+  document.querySelector('#nav a[data-v="status"]').textContent = 'About';
+  VIEWS.ledger = VIEWS.market;
+}
+(async () => {
+  try { await loadStatus(); } catch (e) { VIEW.replaceChildren(h('div', { class: 'error' }, 'Could not reach the ForeverLedger server: ' + e.message)); return; }
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script>
+</body>
+</html>
